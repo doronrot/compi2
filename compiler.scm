@@ -8,7 +8,7 @@
 			(vector? exp)
 			(char? exp)
 			(string? exp) )))
-
+asdg
 
 (define var?
 	(lambda (x)
