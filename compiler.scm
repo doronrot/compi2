@@ -1,5 +1,5 @@
 (load "pattern-matcher.scm")
-
+helloooooooooooooooo
 (define simple-const? 
 	(lambda (exp)
 		(or (number? exp)
@@ -8,7 +8,7 @@
 			(vector? exp)
 			(char? exp)
 			(string? exp) )))
-asdg
+
 
 (define var?
 	(lambda (x)
