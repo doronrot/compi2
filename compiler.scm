@@ -63,19 +63,23 @@
 						(lambda (argl expr exprs)
 					
                                                     (identify-lambda    argl 
-                                                                        (lambda (s) `(lambda-simple ,s ,@(map parse (cons expr exprs) )))
-                                                                        (lambda (s opt) `(lambda-opt ,s ,opt)) 
-                                                                        (lambda (var) `(lambda-var ,var)))))
+                                                                        (lambda (s) `(lambda-simple ,s ,(parse `(begin ,@(cons expr exprs)))))
+                                                                        (lambda (s opt) `(lambda-opt ,s ,opt ,(parse `(begin ,@(cons expr exprs)))))
+                                                                        (lambda (var) `(lambda-var ,var ,(parse `(begin ,@(cons expr exprs))))))))
                                         
-
 					(pattern-rule
-						`(seq ,(? 'expr).,(? 'exprs))
+						`(begin)
+						 (lambda () `(const ,(void))))
+					(pattern-rule
+						`(begin ,(? 'expr).,(? 'exprs))
 						(lambda (expr exprs)
-							`(seq ,(map parse (cons expr exprs) ))))
+                                                    (if (null? exprs)
+                                                        (parse expr)
+							`(seq ,(map parse (cons expr exprs) )))))
 
-
+                                        ;TODO: forum question about "var?"
 					(pattern-rule
-					 	(? 'v var?)				;forum question about "var?"
+					 	(? 'v var?)				
 					 	(lambda (v) `(var ,v)))	
 					)))
 		(lambda (sexpr)
