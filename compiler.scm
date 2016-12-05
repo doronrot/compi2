@@ -67,6 +67,18 @@
                                                                         (lambda (s opt) `(lambda-opt ,s ,opt ,(parse `(begin ,@(cons expr exprs)))))
                                                                         (lambda (var) `(lambda-var ,var ,(parse `(begin ,@(cons expr exprs))))))))
                                         
+		    			;define
+					(pattern-rule	
+						`(define ,(? 'var var?) ,(? 'expr))
+						(lambda (var expr)
+							`(def (var ,var) ,(parse expr))))
+					;defineMitFunc
+					(pattern-rule
+						`(define (,(? 'var var?) ,(? 'argsl)) ,(? 'expr) . ,(? 'exprs))
+						(lambda (var argl expr exprs)
+ 							`(def (var ,var) ,(parse `(lambda ,argl ,expr ,exprs)))))
+
+		    
 					(pattern-rule
 						`(begin)
 						 (lambda () `(const ,(void))))
