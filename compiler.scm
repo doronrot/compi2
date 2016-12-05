@@ -21,6 +21,12 @@
 		(and (symbol? x)
 			 (not-reserved? x))))
 
+; (define is-car-var?
+; 	(lambda (x)
+; 		(if (not (list? x))
+; 			#f
+; 			(var? (car x)))))
+
 (define identify-lambda
 	(lambda (argl ret-simple ret-opt ret-var)
 		(cond 
@@ -77,12 +83,11 @@
 						(lambda (var expr)
 							`(def (var ,var) ,(parse expr))))
 					
-					; ;defineMitFunc
-					; (pattern-rule
-					; 	`(define (,(? 'var var?) ,(? 'args) ,(? 'args2)) ,(? 'expr) . ,(? 'exprs))
-					; 	(lambda (var args  args2 expr exprs)
-					; 		(display args2)
-					; 		(parse `(define ,var (lambda ,(cons args args2) ,expr ,@exprs)))))
+					 ;TODO: check if is-car-var? is needed for var_args.
+					 (pattern-rule
+					 	`(define ,(? 'var_args) ,(? 'expr) . ,(? 'exprs))
+					 	(lambda (var_args expr exprs)
+					 		`(def (var ,(car var_args)) ,(parse `(lambda ,(cdr var_args) ,expr ,@exprs)))))
 
 
  					;Assignments;
