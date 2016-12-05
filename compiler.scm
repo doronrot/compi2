@@ -8,7 +8,7 @@
 			(vector? exp)
 			(char? exp)
 			(string? exp) )))
-cvncncncnjgjcghcghkgkgkg
+
 (define var?
 	(lambda (x)
 		(and (symbol? x)
