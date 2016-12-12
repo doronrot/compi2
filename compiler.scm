@@ -21,11 +21,11 @@
 		(and (symbol? x)
 			 (not-reserved? x))))
 
-; (define is-car-var?
-; 	(lambda (x)
-; 		(if (not (list? x))
-; 			#f
-; 			(var? (car x)))))
+(define is-car-var?
+	(lambda (x)
+		(if (not (pair? x))
+			#f
+			(var? (car x)))))
 
 (define identify-lambda
 	(lambda (argl ret-simple ret-opt ret-var)
@@ -61,7 +61,7 @@
 					;Disjunctions;
 					(pattern-rule
 						`(or)
-						(lambda () #f))
+						(lambda () (parse #f)))
 					(pattern-rule 
 						`(or ,(? 'expr).,(? 'exprs))
 						(lambda (expr exprs)
@@ -83,16 +83,16 @@
 						(lambda (var expr)
 							`(def (var ,var) ,(parse expr))))
 					
-					 ;TODO: check if is-car-var? is needed for var_args.
+					 ;Define MIT;
 					 (pattern-rule
-					 	`(define ,(? 'var_args) ,(? 'expr) . ,(? 'exprs))
+					 	`(define ,(? 'var_args is-car-var?) ,(? 'expr) . ,(? 'exprs))
 					 	(lambda (var_args expr exprs)
 					 		`(def (var ,(car var_args)) ,(parse `(lambda ,(cdr var_args) ,expr ,@exprs)))))
 
 
  					;Assignments;
 				    (pattern-rule
-					 	`( set! ,(? 'v) ,(? 'pexpr))
+					 	`(set! ,(? 'v var?) ,(? 'pexpr))
 					 	(lambda (v pexpr)
 							`(set (var ,v) ,(parse pexpr)))) 
 
@@ -100,7 +100,6 @@
 				    (pattern-rule
 					 	`( ,(? 'expr not-reserved?) .,(? 'exprs))
 					 	(lambda (expr exprs)
-
 							`(applic ,(parse expr) ,(map parse exprs))))
 		    		
 		    		;Sequences;
@@ -118,8 +117,21 @@
 					;TODO: forum question about "var?"
 					(pattern-rule
 					 	(? 'v var?)				
-					 	(lambda (v) `(var ,v))))	
-					))
+					 	(lambda (v) `(var ,v)))
+
+					;;;;;;; Macro - Exapntions ;;;;;;;;
+					(pattern-rule
+						`(and)
+						(lambda () (parse #t)))
+					
+					(pattern-rule
+					 	`(and ,(? 'expr) .,(? 'exprs)) 				
+					 	(lambda (expr exprs)
+						    (if (null? exprs)
+                                (parse expr)
+							    (parse `(if ,expr (and ,@exprs)  #f)))))
+
+					)))
 				
 		(lambda (sexpr)
 			(run sexpr (lambda () 'fail!)))))
