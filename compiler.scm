@@ -131,6 +131,20 @@
                                 (parse expr)
 							    (parse `(if ,expr (and ,@exprs)  #f)))))
 
+		    
+		    		;Cond;
+					(pattern-rule
+						`(cond)
+						(lambda () (parse #f)))
+
+					(pattern-rule
+					 	`(cond ,(? 'expr pair?) .,(? 'exprs)) 				
+					 	(lambda (expr exprs)
+						    (if (null? exprs)
+                                (if (equal? (car expr) 'else)
+                                	(parse (cadr expr))
+                                	(parse `(if ,(car expr) ,@(cdr expr) #f)))
+							 	(parse `(if ,(car expr) ,@(cdr expr) (cond ,@exprs))))))
 					)))
 				
 		(lambda (sexpr)
