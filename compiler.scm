@@ -3,7 +3,7 @@
 (define simple-const? 
 	(lambda (exp)
 		(or (number? exp)
-			(null? exp)
+			;(null? exp)
 			(boolean? exp)
 			(vector? exp)
 			(char? exp)
@@ -14,6 +14,13 @@
 		(not(member x '(and begin cond define do else if lambda 
 					  	     let let* letrec or quasiquote unquote
 					 	     unquote-splicing quote set!)))))
+
+(define no-duplications?
+	(lambda (lst)
+		(cond 
+			((null? lst) #t) 
+      		((member (car lst) (cdr lst)) #f)
+      		(else (no-duplications? (cdr lst)) ))))
 
 ;TODO: still have a problem when number appears at the beginning
 (define var?
@@ -68,9 +75,10 @@
 							`(or ,(map parse
 								 	   (cons expr exprs)))))
                                         
-                    ;Lambda forms;       
+                    ;Lambda forms;
+                    ;TBD: handle list of parameters with the same name.       
 					(pattern-rule
-						`(lambda ,(? 'argl) ,(? 'expr).,(? 'exprs))
+						`(lambda ,(? 'argl no-duplications?) ,(? 'expr).,(? 'exprs))
 						(lambda (argl expr exprs)
 							(identify-lambda    argl 
                                                 (lambda (s) `(lambda-simple ,s ,(parse `(begin ,@(cons expr exprs)))))
@@ -119,7 +127,8 @@
 					 	(? 'v var?)				
 					 	(lambda (v) `(var ,v)))
 
-					;;;;;;; Macro - Exapntions ;;;;;;;;
+					;;;;;;; Macro - Expansions ;;;;;;;;
+					;And; 
 					(pattern-rule
 						`(and)
 						(lambda () (parse #t)))
@@ -129,10 +138,9 @@
 					 	(lambda (expr exprs)
 						    (if (null? exprs)
                                 (parse expr)
-							    (parse `(if ,expr (and ,@exprs)  #f)))))
+							    (parse `(if ,expr (and ,@exprs) #f)))))
 
-		    
-		    		;Cond;
+					;Cond;
 					(pattern-rule
 						`(cond)
 						(lambda () (parse #f)))
@@ -145,6 +153,36 @@
                                 	(parse (cadr expr))
                                 	(parse `(if ,(car expr) ,@(cdr expr) #f)))
 							 	(parse `(if ,(car expr) ,@(cdr expr) (cond ,@exprs))))))
+
+					;Let;
+					(pattern-rule
+						`(let ,(? 'pairs list?) ,(? 'body) .,(? 'bodies))
+						(lambda (pairs body bodies)
+							(parse `((lambda ,(map car pairs) ,@(cons body bodies))
+									 ,@(map cadr pairs)))))
+
+					;VERSION 2.0 because part of the expression fails. TBD.
+					; (pattern-rule
+					; 	`(let ,(? 'pairs list?) ,(? 'body) .,(? 'bodies))
+					; 	(lambda (pairs body bodies)
+					; 		(let ((pairs-lst (map car pairs)))
+					; 			(if (no-duplications? pairs-lst)
+					; 				(parse `((lambda ,pairs-lst ,@(cons body bodies))
+					; 					,@(map cadr pairs)))
+					; 				#f))))
+
+					;Let*;
+					(pattern-rule
+						`(let* ,(? 'pairs list?) ,(? 'body) .,(? 'bodies))
+						(lambda (pairs body bodies)
+							(cond ((null? pairs)
+									(parse `(let () ,@(cons body bodies))))
+								  ((null? (cdr pairs))
+								  	(parse `(let (,(car pairs)) ,@(cons body bodies))))
+								  (else 
+								    (parse `(let (,(car pairs)) (let* ,(cdr pairs) ,@(cons body bodies))))))))
+
+
 					)))
 				
 		(lambda (sexpr)
