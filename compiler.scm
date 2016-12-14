@@ -1,4 +1,13 @@
 (load "pattern-matcher.scm")
+(load "qq.scm")
+
+
+;TBD: 
+; is fail (ours) == error(meir)?
+; qq
+; begin
+; VAR - still have a problem when number appears at the beginning
+
 
 (define simple-const? 
 	(lambda (exp)
@@ -14,10 +23,44 @@
 		(not(member x '(and begin cond define do else if lambda 
 					  	     let let* letrec or quasiquote unquote
 					 	     unquote-splicing quote set!)))))
+(define cons_false 
+	(lambda (var)
+		(cons var (list #f))))
+
+(define cons_set
+	(lambda (pair)
+	 	(cons 'set! pair)))
+
+; (define first_el_qq?
+; 	(lambda (lst)
+; 		(if (not (list? lst))
+; 			#f
+; 			(list lst))))
+
+
+; (pattern-rule
+; `(quasiquote . ,(? 'args))
+(define till_point
+	(lambda (lst new_lst)
+		(if (pair? lst)
+			(till_point (cdr lst)
+						(append new_lst (list (car lst))))
+			new_lst)))
+			
+
+(define till_point_help
+	(lambda (lst)
+		(till_point lst (list))))
+
 
 (define no-duplications?
 	(lambda (lst)
-		(cond 
+		(cond
+			;you are improper list if: 
+			((and (not (list? lst)) (pair? lst)) (no-duplications? (till_point_help lst)))
+			;you are not a list at all if:
+			((not (pair? lst)) #t)
+			;else, you are probably a list:
 			((null? lst) #t) 
       		((member (car lst) (cdr lst)) #f)
       		(else (no-duplications? (cdr lst)) ))))
@@ -44,7 +87,7 @@
 					(lambda (s opt) (ret-opt `(,(car argl) ,@s) opt)) ;opt
 					(lambda (var) (ret-opt `(,(car argl)) var)))))))
                                 
-(define parse
+(define parse-2
 	(let ((run (compose-patterns
 
 					;Constants;
@@ -59,56 +102,57 @@
 					(pattern-rule
 						`(if ,(? 'test) ,(? 'dit))
 						(lambda (test dit) 
-							`(if3 ,(parse test) ,(parse dit) (const ,(void)))))
+							`(if3 ,(parse-2 test) ,(parse-2 dit) (const ,(void)))))
 					(pattern-rule 
 						`(if ,(? 'test) ,(? 'dit) ,(? 'dif))
 						(lambda (test dit dif)
-							`(if3 ,(parse test) ,(parse dit) ,(parse dif))))
+							`(if3 ,(parse-2 test) ,(parse-2 dit) ,(parse-2 dif))))
 					
 					;Disjunctions;
 					(pattern-rule
 						`(or)
-						(lambda () (parse #f)))
+						(lambda () (parse-2 #f)))
 					(pattern-rule 
 						`(or ,(? 'expr).,(? 'exprs))
 						(lambda (expr exprs)
-							`(or ,(map parse
-								 	   (cons expr exprs)))))
+							(if (null? exprs)
+								(parse-2 expr)
+								`(or ,(map parse-2
+									 	   (cons expr exprs))))))
                                         
-                    ;Lambda forms;
-                    ;TBD: handle list of parameters with the same name.       
+                    ;Lambda forms;       
 					(pattern-rule
 						`(lambda ,(? 'argl no-duplications?) ,(? 'expr).,(? 'exprs))
 						(lambda (argl expr exprs)
 							(identify-lambda    argl 
-                                                (lambda (s) `(lambda-simple ,s ,(parse `(begin ,@(cons expr exprs)))))
-                                                (lambda (s opt) `(lambda-opt ,s ,opt ,(parse `(begin ,@(cons expr exprs)))))
-                                                (lambda (var) `(lambda-var ,var ,(parse `(begin ,@(cons expr exprs))))))))
+                                                (lambda (s) `(lambda-simple ,s ,(parse-2 `(begin ,@(cons expr exprs)))))
+                                                (lambda (s opt) `(lambda-opt ,s ,opt ,(parse-2 `(begin ,@(cons expr exprs)))))
+                                                (lambda (var) `(lambda-var ,var ,(parse-2 `(begin ,@(cons expr exprs))))))))
                 
 		    		;Define;
 					(pattern-rule	
-						`(define ,(? 'var var?) ,(? 'expr))
-						(lambda (var expr)
-							`(def (var ,var) ,(parse expr))))
+						`(define ,(? 'var var?) ,(? 'expr) .,(? 'exprs))
+						(lambda (var expr exprs)
+							`(def (var ,var) ,(parse-2 `(begin ,@(cons expr exprs))))))
 					
 					 ;Define MIT;
 					 (pattern-rule
 					 	`(define ,(? 'var_args is-car-var?) ,(? 'expr) . ,(? 'exprs))
 					 	(lambda (var_args expr exprs)
-					 		`(def (var ,(car var_args)) ,(parse `(lambda ,(cdr var_args) ,expr ,@exprs)))))
+					 		`(def (var ,(car var_args)) ,(parse-2 `(lambda ,(cdr var_args) ,expr ,@exprs)))))
 
 
  					;Assignments;
 				    (pattern-rule
 					 	`(set! ,(? 'v var?) ,(? 'pexpr))
 					 	(lambda (v pexpr)
-							`(set (var ,v) ,(parse pexpr)))) 
+							`(set (var ,v) ,(parse-2 pexpr)))) 
 
 				    ;Applications;
 				    (pattern-rule
 					 	`( ,(? 'expr not-reserved?) .,(? 'exprs))
 					 	(lambda (expr exprs)
-							`(applic ,(parse expr) ,(map parse exprs))))
+							`(applic ,(parse-2 expr) ,(map parse-2 exprs))))
 		    		
 		    		;Sequences;
 					(pattern-rule
@@ -118,8 +162,8 @@
 						`(begin ,(? 'expr).,(? 'exprs))
 						(lambda (expr exprs)
                             (if (null? exprs)
-                                (parse expr)
-							   `(seq ,(map parse (cons expr exprs) )))))
+                                (parse-2 expr)
+							   `(seq ,(map parse-2 (cons expr exprs) )))))
                      
 					;Variables;
 					;TODO: forum question about "var?"
@@ -131,34 +175,34 @@
 					;And; 
 					(pattern-rule
 						`(and)
-						(lambda () (parse #t)))
+						(lambda () (parse-2 #t)))
 					
 					(pattern-rule
 					 	`(and ,(? 'expr) .,(? 'exprs)) 				
 					 	(lambda (expr exprs)
 						    (if (null? exprs)
-                                (parse expr)
-							    (parse `(if ,expr (and ,@exprs) #f)))))
+                                (parse-2 expr)
+							    (parse-2 `(if ,expr (and ,@exprs) #f)))))
 
 					;Cond;
-					(pattern-rule
-						`(cond)
-						(lambda () (parse #f)))
+					; (pattern-rule
+					; 	`(cond)
+					; 	(lambda () (parse-2 #f)))
 
 					(pattern-rule
 					 	`(cond ,(? 'expr pair?) .,(? 'exprs)) 				
 					 	(lambda (expr exprs)
 						    (if (null? exprs)
                                 (if (equal? (car expr) 'else)
-                                	(parse (cadr expr))
-                                	(parse `(if ,(car expr) ,@(cdr expr) #f)))
-							 	(parse `(if ,(car expr) ,@(cdr expr) (cond ,@exprs))))))
+                                	(parse-2 `(begin ,@(cdr expr)))
+                                	(parse-2 `(if ,(car expr) (begin ,@(cdr expr)))))
+							 	(parse-2 `(if ,(car expr) (begin ,@(cdr expr)) (cond ,@exprs))))))
 
 					;Let;
 					(pattern-rule
 						`(let ,(? 'pairs list?) ,(? 'body) .,(? 'bodies))
 						(lambda (pairs body bodies)
-							(parse `((lambda ,(map car pairs) ,@(cons body bodies))
+							(parse-2 `((lambda ,(map car pairs) ,@(cons body bodies))
 									 ,@(map cadr pairs)))))
 
 					;VERSION 2.0 because part of the expression fails. TBD.
@@ -167,7 +211,7 @@
 					; 	(lambda (pairs body bodies)
 					; 		(let ((pairs-lst (map car pairs)))
 					; 			(if (no-duplications? pairs-lst)
-					; 				(parse `((lambda ,pairs-lst ,@(cons body bodies))
+					; 				(parse-2 `((lambda ,pairs-lst ,@(cons body bodies))
 					; 					,@(map cadr pairs)))
 					; 				#f))))
 
@@ -176,14 +220,36 @@
 						`(let* ,(? 'pairs list?) ,(? 'body) .,(? 'bodies))
 						(lambda (pairs body bodies)
 							(cond ((null? pairs)
-									(parse `(let () ,@(cons body bodies))))
+									(parse-2 `(let () ,@(cons body bodies))))
 								  ((null? (cdr pairs))
-								  	(parse `(let (,(car pairs)) ,@(cons body bodies))))
+								  	(parse-2 `(let (,(car pairs)) ,@(cons body bodies))))
 								  (else 
-								    (parse `(let (,(car pairs)) (let* ,(cdr pairs) ,@(cons body bodies))))))))
+								    (parse-2 `(let (,(car pairs)) (let* ,(cdr pairs) ,@(cons body bodies))))))))
+					;Letrec;
+					(pattern-rule
+						`(letrec ,(? 'pairs list?) ,(? 'body) .,(? 'bodies))
+						(lambda (pairs body bodies)
+							(parse-2 `(let ,(map cons_false (map car pairs))
+										 ,@(map cons_set pairs)
+										 ((lambda () ,@(cons body bodies)))))))
+
+					; ;QQ;
+					; (pattern-rule
+					; 	`(quasiquote .,(? 'expr))
+					; 	(lambda (expr)
+					; 		(expand-qq quasiquote expr)))
+
 
 
 					)))
 				
 		(lambda (sexpr)
 			(run sexpr (lambda () 'fail!)))))
+
+
+(letrec ((hello? (lambda (n)
+					(if (= n 1)
+						1
+						(+ n (hello? (- n 1)))))))
+
+    (hello? 10))
