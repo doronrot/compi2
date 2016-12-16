@@ -4,7 +4,6 @@
 
 ;TBD: 
 ; is fail (ours) == error(meir)?
-; qq
 ; begin
 ; VAR - still have a problem when number appears at the beginning
 
@@ -30,6 +29,27 @@
 (define cons_set
 	(lambda (pair)
 	 	(cons 'set! pair)))
+
+;; (define flat_begins
+;; 	(letrec ((flabe (lambda (lst)
+;; 						(if (null? lst)
+;; 							;return what?
+;; 							(if (equal? (caar lst) 'begin)
+;; 								(cdr lst) 	; begin removed, but expressions are in parenthesis
+;; 								(list lst)	; so that the parenthesis will be as above
+;; 								)))))
+;; 		(flabe lst)))
+						 ;    		;Sequences;
+
+					; (pattern-rule
+					; 	`(begin ,(? 'expr).,(? 'exprs))
+					; 	(lambda (expr exprs)
+     ;                        (if (null? exprs)
+     ;                            (parse-2 expr)
+					; 		   `(seq ,(map parse-2 
+					; 		   			   (map flat_begins 
+					; 		   			   		(cons expr exprs)))) )))
+
 
 ; (define first_el_qq?
 ; 	(lambda (lst)
@@ -163,7 +183,9 @@
 						(lambda (expr exprs)
                             (if (null? exprs)
                                 (parse-2 expr)
-							   `(seq ,(map parse-2 (cons expr exprs) )))))
+							   `(seq ,(map parse-2 
+							   			   (map flat_begins 
+							   			   		(cons expr exprs)))) )))
                      
 					;Variables;
 					;TODO: forum question about "var?"
@@ -205,16 +227,6 @@
 							(parse-2 `((lambda ,(map car pairs) ,@(cons body bodies))
 									 ,@(map cadr pairs)))))
 
-					;VERSION 2.0 because part of the expression fails. TBD.
-					; (pattern-rule
-					; 	`(let ,(? 'pairs list?) ,(? 'body) .,(? 'bodies))
-					; 	(lambda (pairs body bodies)
-					; 		(let ((pairs-lst (map car pairs)))
-					; 			(if (no-duplications? pairs-lst)
-					; 				(parse-2 `((lambda ,pairs-lst ,@(cons body bodies))
-					; 					,@(map cadr pairs)))
-					; 				#f))))
-
 					;Let*;
 					(pattern-rule
 						`(let* ,(? 'pairs list?) ,(? 'body) .,(? 'bodies))
@@ -233,11 +245,11 @@
 										 ,@(map cons_set pairs)
 										 ((lambda () ,@(cons body bodies)))))))
 
-					; ;QQ;
-					; (pattern-rule
-					; 	`(quasiquote .,(? 'expr))
-					; 	(lambda (expr)
-					; 		(expand-qq quasiquote expr)))
+                                        ;QQ;
+					 (pattern-rule
+					 	`(quasiquote .,(? 'expr))
+					 	(lambda (expr)
+					 		(parse-2 (expand-qq (car expr)))))
 
 
 
@@ -245,11 +257,3 @@
 				
 		(lambda (sexpr)
 			(run sexpr (lambda () 'fail!)))))
-
-
-(letrec ((hello? (lambda (n)
-					(if (= n 1)
-						1
-						(+ n (hello? (- n 1)))))))
-
-    (hello? 10))
