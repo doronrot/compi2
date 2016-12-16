@@ -3,9 +3,10 @@
 
 
 ;TBD: 
-; is fail (ours) == error(meir)?
 ; begin
 ; VAR - still have a problem when number appears at the beginning
+; add HW1
+; cange parse-3 -> parse
 
 
 (define simple-const? 
@@ -30,36 +31,16 @@
 	(lambda (pair)
 	 	(cons 'set! pair)))
 
-;; (define flat_begins
-;; 	(letrec ((flabe (lambda (lst)
-;; 						(if (null? lst)
-;; 							;return what?
-;; 							(if (equal? (caar lst) 'begin)
-;; 								(cdr lst) 	; begin removed, but expressions are in parenthesis
-;; 								(list lst)	; so that the parenthesis will be as above
-;; 								)))))
-;; 		(flabe lst)))
-						 ;    		;Sequences;
+; (define flat_begins
+; 	(letrec ((flabe (lambda (lst)
+; 						(if (null? lst)
+; 							;return what?
+; 							(if (equal? (caar lst) 'begin)
+; 								(cdr lst) 	; begin removed, but expressions are in parenthesis
+; 								(list lst)	; so that the parenthesis will be as above
+; 								)))))
+; 		(flabe lst)))
 
-					; (pattern-rule
-					; 	`(begin ,(? 'expr).,(? 'exprs))
-					; 	(lambda (expr exprs)
-     ;                        (if (null? exprs)
-     ;                            (parse-2 expr)
-					; 		   `(seq ,(map parse-2 
-					; 		   			   (map flat_begins 
-					; 		   			   		(cons expr exprs)))) )))
-
-
-; (define first_el_qq?
-; 	(lambda (lst)
-; 		(if (not (list? lst))
-; 			#f
-; 			(list lst))))
-
-
-; (pattern-rule
-; `(quasiquote . ,(? 'args))
 (define till_point
 	(lambda (lst new_lst)
 		(if (pair? lst)
@@ -76,16 +57,16 @@
 (define no-duplications?
 	(lambda (lst)
 		(cond
-			;you are improper list if: 
+			;improper list: 
 			((and (not (list? lst)) (pair? lst)) (no-duplications? (till_point_help lst)))
-			;you are not a list at all if:
+			;not a list:
 			((not (pair? lst)) #t)
-			;else, you are probably a list:
+			;else, list:
 			((null? lst) #t) 
       		((member (car lst) (cdr lst)) #f)
       		(else (no-duplications? (cdr lst)) ))))
 
-;TODO: still have a problem when number appears at the beginning
+
 (define var?
 	(lambda (x)
 		(and (symbol? x)
@@ -107,6 +88,25 @@
 					(lambda (s opt) (ret-opt `(,(car argl) ,@s) opt)) ;opt
 					(lambda (var) (ret-opt `(,(car argl)) var)))))))
                                 
+(define parse-3
+	(lambda (exp)
+		(let ((answer (parse-2 exp)))
+			(if (is_contain_fail? answer)
+				'"ERROR"
+				answer))))
+
+(define is_contain_fail?
+	(lambda (lst)
+		(if (null? lst)
+			#f
+			(if (equal? lst 'fail!)
+				#t
+				(if (atom? lst)
+					#f
+					(or (is_contain_fail? (car lst))
+						(is_contain_fail? (cdr lst))))))))
+
+
 (define parse-2
 	(let ((run (compose-patterns
 
@@ -175,17 +175,29 @@
 							`(applic ,(parse-2 expr) ,(map parse-2 exprs))))
 		    		
 		    		;Sequences;
+
 					(pattern-rule
 						`(begin)
 						 (lambda () `(const ,(void))))
+
+
+		    		;NEW BEGIN: (doesnt work yet);
+					; (pattern-rule
+					; 	`(begin ,(? 'expr).,(? 'exprs))
+					; 	(lambda (expr exprs)
+     ;                        (if (null? exprs)
+     ;                            (parse-2 expr)
+					; 		   `(seq ,(map parse-2 
+					; 		   			   (map flat_begins 
+					; 		   			   		(cons expr exprs)))) )))
+
+					;OLD BEGIN: (works except begin inside begin...)
 					(pattern-rule
-						`(begin ,(? 'expr).,(? 'exprs))
-						(lambda (expr exprs)
-                            (if (null? exprs)
-                                (parse-2 expr)
-							   `(seq ,(map parse-2 
-							   			   (map flat_begins 
-							   			   		(cons expr exprs)))) )))
+  						`(begin ,(? 'expr).,(? 'exprs))
+  						(lambda (expr exprs)
+                              (if (null? exprs)
+                              (parse-2 expr)
+ 							   	  `(seq ,(map parse-2 (cons expr exprs))))))
                      
 					;Variables;
 					;TODO: forum question about "var?"
@@ -193,6 +205,7 @@
 					 	(? 'v var?)				
 					 	(lambda (v) `(var ,v)))
 
+					
 					;;;;;;; Macro - Expansions ;;;;;;;;
 					;And; 
 					(pattern-rule
@@ -207,10 +220,6 @@
 							    (parse-2 `(if ,expr (and ,@exprs) #f)))))
 
 					;Cond;
-					; (pattern-rule
-					; 	`(cond)
-					; 	(lambda () (parse-2 #f)))
-
 					(pattern-rule
 					 	`(cond ,(? 'expr pair?) .,(? 'exprs)) 				
 					 	(lambda (expr exprs)
@@ -245,12 +254,11 @@
 										 ,@(map cons_set pairs)
 										 ((lambda () ,@(cons body bodies)))))))
 
-                                        ;QQ;
+					;QQ;
 					 (pattern-rule
 					 	`(quasiquote .,(? 'expr))
 					 	(lambda (expr)
 					 		(parse-2 (expand-qq (car expr)))))
-
 
 
 					)))
